@@ -206,7 +206,39 @@ details.done-list summary::-webkit-details-marker{display:none}
 .controls .btn.wide{max-width:none}
 .under{display:flex;justify-content:center;margin-top:14px;min-height:44px}
 .tip{text-align:center;font-size:13px;color:var(--muted);margin:6px 0 0}
-body.focusing #tabs{opacity:.4}
+
+/* Immersive focus */
+body.immersive{overflow:hidden}
+body.immersive #tabs{opacity:0;pointer-events:none}
+.imm{position:fixed;inset:0;z-index:35;display:flex;flex-direction:column;color:var(--ink);overflow:hidden;
+  padding:calc(env(safe-area-inset-top) + 8px) 24px calc(env(safe-area-inset-bottom) + 20px);-webkit-user-select:none;user-select:none}
+.imm.m-focus{--ink:#E3EEE9;--ink-2:rgba(227,238,233,.66);--muted:rgba(227,238,233,.42);--line-strong:rgba(227,238,233,.24);
+  --accent:#9DD7C4;--accent-ink:#08201C;--tidec:rgba(157,215,196,.075);--tidel:rgba(157,215,196,.30);
+  background:radial-gradient(130% 85% at 50% 0%,#15473F 0%,#0B2724 55%,#071917 100%)}
+.imm.m-break{--ink:#E8E6F6;--ink-2:rgba(232,230,246,.68);--muted:rgba(232,230,246,.44);--line-strong:rgba(232,230,246,.24);
+  --accent:#C2BCF4;--accent-ink:#17142E;--tidec:rgba(194,188,244,.08);--tidel:rgba(194,188,244,.32);
+  background:radial-gradient(130% 85% at 50% 0%,#353A66 0%,#22264A 55%,#16182F 100%)}
+.imm.in{animation:immIn .75s cubic-bezier(.3,.7,.2,1) both}
+.imm.in .imm-mid{animation:immUp .7s .3s cubic-bezier(.2,.8,.2,1) both}
+@keyframes immIn{from{clip-path:circle(0% at 50% 82%)}to{clip-path:circle(150% at 50% 82%)}}
+@keyframes immUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.imm-tide{position:absolute;left:0;right:0;bottom:0;height:0;background:var(--tidec);box-shadow:inset 0 1px 0 var(--tidel);pointer-events:none;transition:height 1s linear}
+.imm-top{position:relative;display:flex;align-items:center;justify-content:space-between;min-height:48px}
+.imm-min{width:44px;height:44px;margin-left:-10px;border-radius:22px;border:0;background:transparent;color:var(--ink-2);display:grid;place-items:center}
+.imm-min:active{background:rgba(255,255,255,.08)}
+.imm-mode{font-size:14px;color:var(--muted);letter-spacing:.01em}
+.imm-mid{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding-bottom:40px}
+.imm-task{margin:0 0 6px;max-width:22ch;font-size:24px;line-height:1.2;color:var(--ink-2);font-style:italic;text-wrap:balance;border:0;background:none;padding:4px 8px}
+.imm-digits{font-size:clamp(112px,36vw,210px);line-height:1;letter-spacing:-.02em;white-space:nowrap;transition:opacity .4s}
+.imm.paused .imm-digits{opacity:.38}
+.imm-ends{margin:14px 0 0;font-size:15px;color:var(--muted)}
+.imm-ctrl{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .45s,transform .45s}
+.imm.ctrl .imm-ctrl,.imm.paused .imm-ctrl{opacity:1;transform:none;pointer-events:auto}
+.imm-btns{display:flex;gap:12px;width:100%;max-width:420px}
+.imm-btns .btn{flex:1}
+.imm .btn-ghost{background:rgba(255,255,255,.05)}
+.imm-hint{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 48px);margin:0;text-align:center;font-size:13px;color:var(--muted);opacity:0;transition:opacity .6s .2s;pointer-events:none}
+.imm:not(.ctrl):not(.paused) .imm-hint{opacity:1}
 
 /* Progress */
 .bars{position:relative;height:150px;display:grid;grid-template-columns:repeat(7,1fr);gap:10px;align-items:end;margin-top:34px}
@@ -305,6 +337,7 @@ body.focusing #tabs{opacity:.4}
 <div class="statusbar"></div>
 <div id="tide" style="display:none"></div>
 <main id="view"></main>
+<div id="immHost"></div>
 <nav id="tabs" aria-label="Sections">
   <button class="tab" data-act="tab" data-tab="today">Today</button>
   <button class="tab" data-act="tab" data-tab="focus">Focus</button>
@@ -482,7 +515,6 @@ let tickH = null;
 function ensureTick() {
   if (S.timer.state === 'running') { if (!tickH) tickH = setInterval(tick, 250); }
   else { clearInterval(tickH); tickH = null; }
-  document.body.classList.toggle('focusing', S.timer.state === 'running' && UI.tab === 'focus');
 }
 function digitsHTML(sec) {
   return mmss(sec).split('').map(c => c === ':' ? '<span class="colon">:</span>' : `<span class="dg">${c}</span>`).join('');
@@ -494,7 +526,7 @@ function tick() {
   if (rem <= 0) { completeTimer(T.dur, false); return; }
   const d = $('#digits');
   if (d) { const h = digitsHTML(rem); if (d._h !== h) { d.innerHTML = h; d._h = h; } }
-  const tide = $('#tide'); if (tide) tide.style.height = ((1 - rem / T.dur) * 100).toFixed(2) + '%';
+  const tide = $('#itide'); if (tide) tide.style.height = ((1 - rem / T.dur) * 100).toFixed(2) + '%';
   const c = $('#ctxRem'); if (c) c.textContent = mmss(rem);
   document.title = `${mmss(rem)} left`;
 }
@@ -502,7 +534,7 @@ function startTimer() {
   unlockAudio();
   const T = S.timer, now = Date.now();
   Object.assign(T, { state: 'running', startAt: now, endAt: now + T.dur * 1000 });
-  save(); holdWake(); ensureTick(); render();
+  save(); holdWake(); ensureTick(); render(); armCtrl();
 }
 function pauseTimer() {
   const T = S.timer; if (T.state !== 'running') return;
@@ -513,7 +545,7 @@ function resumeTimer() {
   unlockAudio();
   const T = S.timer; if (T.state !== 'paused') return;
   T.endAt = Date.now() + T.remaining * 1000; T.state = 'running';
-  save(); holdWake(); ensureTick(); render();
+  save(); holdWake(); ensureTick(); render(); armCtrl();
 }
 function completeTimer(elapsed, early) {
   const T = S.timer, mode = T.mode, task = T.taskId ? findTask(T.taskId) : null;
@@ -570,10 +602,12 @@ function releaseWake() { try { if (wake) wake.release(); } catch (e) {} wake = n
 function applyTheme() {
   const t = S.profile.theme, root = document.documentElement;
   if (t === 'light' || t === 'dark') root.dataset.theme = t; else delete root.dataset.theme;
-  requestAnimationFrame(() => {
-    const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
-    const m = $('meta[name="theme-color"]'); if (m && bg) m.setAttribute('content', bg);
-  });
+  requestAnimationFrame(setBarColor);
+}
+function setBarColor() {
+  const imm = $('.imm');
+  const c = imm ? (imm.classList.contains('m-break') ? '#353A66' : '#15473F') : getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  const m = $('meta[name="theme-color"]'); if (m && c) m.setAttribute('content', c);
 }
 
 /* ---------- Views ---------- */
@@ -846,16 +880,59 @@ function renderProgress() {
     <p class="note" style="margin-top:36px">All time: ${fmt(total)} across ${S.sessions.length} ${S.sessions.length === 1 ? 'session' : 'sessions'}.</p>`;
 }
 
-let lastTab = null;
+function renderImm(enter) {
+  const T = S.timer, focus = T.mode === 'focus', paused = T.state === 'paused';
+  const task = T.taskId ? findTask(T.taskId) : null;
+  const rem = timerRemaining();
+  const cls = ['imm', focus ? 'm-focus' : 'm-break', paused ? 'paused' : '', UI.ctrl ? 'ctrl' : '', enter ? 'in' : ''].join(' ');
+  const line = focus
+    ? `<button class="imm-task serif" data-act="pickTask">${task ? esc(task.text) : 'No task chosen'}</button>`
+    : `<p class="imm-task serif">Stand up, drink some water, look at something far away.</p>`;
+  const btns = paused
+    ? `<button class="btn btn-primary btn-lg" data-act="resume">Resume</button><button class="btn btn-ghost btn-lg" data-act="finish">${focus ? 'Finish' : 'End break'}</button>`
+    : `<button class="btn btn-ghost btn-lg" data-act="pause">Pause</button><button class="btn btn-primary btn-lg" data-act="finish">${focus ? 'Finish' : 'End break'}</button>`;
+  return `<div class="${cls}" data-act="immTap" role="dialog" aria-label="${focus ? 'Focus session' : 'Break'}">
+    <div class="imm-tide" id="itide" style="height:${((1 - rem / T.dur) * 100).toFixed(2)}%"></div>
+    <header class="imm-top"><button class="imm-min" data-act="immMin" aria-label="Back to the app">${ICON.chev}</button><span class="imm-mode">${paused ? 'Paused' : focus ? 'Focus' : 'Break'}</span><span style="width:34px"></span></header>
+    <div class="imm-mid">
+      ${line}
+      <div class="imm-digits serif" id="digits" role="timer">${digitsHTML(rem)}</div>
+      <p class="imm-ends">${paused ? 'Paused. Resume when you’re ready.' : `Ends at ${clock(T.endAt)}`}</p>
+    </div>
+    <footer class="imm-ctrl"><div class="imm-btns">${btns}</div>${focus ? `<button class="btn-text" data-act="park">Park a stray thought</button>` : '<div style="height:44px"></div>'}</footer>
+    <p class="imm-hint">Tap anywhere for controls</p>
+  </div>`;
+}
+let ctrlT = null;
+function armCtrl() {
+  clearTimeout(ctrlT);
+  UI.ctrl = true;
+  const el = $('.imm'); if (el) el.classList.add('ctrl');
+  if (S.timer.state === 'running') ctrlT = setTimeout(hideCtrl, 4500);
+}
+function hideCtrl() {
+  clearTimeout(ctrlT); UI.ctrl = false;
+  const el = $('.imm'); if (el) el.classList.remove('ctrl');
+}
+
+let lastTab = null, lastImm = false;
 function render() {
   rollover();
   const v = $('#view');
-  const html = UI.tab === 'focus' ? renderFocus() : UI.tab === 'plan' ? renderPlan() : UI.tab === 'progress' ? renderProgress() : renderToday();
+  const imm = UI.tab === 'focus' && S.timer.state !== 'idle';
+  const host = $('#immHost');
+  if (imm && !lastImm) UI.ctrl = true;
+  host.innerHTML = imm ? renderImm(!lastImm) : '';
+  document.body.classList.toggle('immersive', imm);
+  if (imm && !lastImm) setTimeout(armCtrl, 0);
+  lastImm = imm;
+  setBarColor();
+  const html = UI.tab === 'focus' ? (imm ? '' : renderFocus()) : UI.tab === 'plan' ? renderPlan() : UI.tab === 'progress' ? renderProgress() : renderToday();
   v.innerHTML = html;
   if (lastTab !== UI.tab) { v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); lastTab = UI.tab; }
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-current', b.dataset.tab === UI.tab ? 'page' : 'false'));
   const tide = $('#tide');
-  tide.style.display = UI.tab === 'focus' ? '' : 'none';
+  tide.style.display = UI.tab === 'focus' && !imm ? '' : 'none';
   if (UI.tab === 'focus') {
     const T = S.timer;
     if (tide) { tide.style.transition = 'none'; tide.style.height = T.state === 'idle' ? '0%' : ((1 - timerRemaining() / T.dur) * 100).toFixed(2) + '%'; void tide.offsetWidth; tide.style.transition = ''; }
@@ -1030,6 +1107,8 @@ function quickFocus(mins, taskId) {
 }
 
 const A = {
+  immTap(el, e) { if (S.timer.state === 'paused') return; if (UI.ctrl) hideCtrl(); else armCtrl(); },
+  immMin() { hideCtrl(); UI.tab = 'today'; render(); window.scrollTo(0, 0); },
   tab(el) { UI.tab = el.dataset.tab; closeSheet(); render(); window.scrollTo(0, 0); },
   settings() { settingsSheet(); },
   closeSheet() { closeSheet(); },
